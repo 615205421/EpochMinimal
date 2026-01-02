@@ -1,1 +1,102 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>极简编辑器</title><style>*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}body{margin:0;height:100vh;display:flex;flex-direction:column;background:#fff;color:#000;overflow:hidden}header{padding:15px 20px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid #000}#hd-top{display:flex;justify-content:space-between;align-items:center}h1{margin:0;font-size:18px;font-weight:900;text-transform:uppercase}#hd-btns{display:flex;gap:8px}.btn-s{padding:5px 10px;font-size:11px}#list-view{flex:1;overflow-y:auto;padding:0 20px;-webkit-overflow-scrolling:touch}.item{display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid #eee}.item-name{font-size:16px;font-weight:400;color:#000;flex:1}.del-btn{font-size:12px;color:#999;border:none;background:none;padding:5px}#edit-view,#pre-view{position:fixed;top:0;left:0;right:0;bottom:0;display:none;flex-direction:column;background:#fff;z-index:99}.bar{padding:10px 16px;display:flex;align-items:center;border-bottom:1px solid #000;gap:6px;justify-content:flex-start}#fn{width:120px;border:none;outline:0;font-size:15px;font-weight:bold;flex-shrink:1}textarea{flex:1;width:100%;padding:20px;border:none;outline:0;font-size:16px;line-height:1.6;color:#333;white-space:pre-wrap;word-break:break-all;overflow-y:auto}iframe{flex:1;width:100%;border:none}.btn{border:1px solid #000;background:none;padding:6px 16px;font-size:12px;text-transform:uppercase;font-weight:bold;cursor:pointer;white-space:nowrap;margin-right:2px}.btn-black{background:#000;color:#fff}.fs-bar{padding:10px 20px;display:flex;align-items:center;font-size:11px;color:#999;border-bottom:1px solid #eee;justify-content:space-between}.empty{text-align:center;margin-top:100px;font-size:14px;color:#ccc;letter-spacing:2px}</style></head><body><header><div id="hd-top"><h1>世纪简码</h1><button class="btn btn-black" onclick="edit('')">新建文件</button></div><div id="hd-btns"><button class="btn btn-s" onclick="bakOut()">备份全部</button><button class="btn btn-s" onclick="$('bakIn').click()">导入备份</button><input type="file" id="bakIn" style="display:none" onchange="bakLoad(this)" accept=".json"></div></header><div id="list-view"></div><div id="edit-view"><div class="bar"><input id="fn" spellcheck="false" placeholder="文件名"><button class="btn" onclick="save()">保存</button><button class="btn" onclick="exp()">导出</button><button class="btn" onclick="back()">返回</button><button class="btn btn-black" onclick="run()">运行</button></div><div class="fs-bar"><div><span>字体 </span><span onclick="setFs(-2)" style="cursor:pointer;color:#000;font-weight:bold;padding:0 5px">—</span><span id="fv" style="color:#000">16px</span><span onclick="setFs(2)" style="cursor:pointer;color:#000;font-weight:bold;padding:0 5px">＋</span></div><div><span onclick="undo()" style="cursor:pointer;color:#000;font-weight:bold;font-size:16px;padding:0 10px">←</span><span onclick="redo()" style="cursor:pointer;color:#000;font-weight:bold;font-size:16px;padding:0 10px">→</span></div></div><textarea id="ed" spellcheck="false" oninput="record()"></textarea></div><div id="pre-view"><div class="bar"><span id="pre-title" style="flex:1;font-weight:bold;font-size:14px">预览</span><button class="btn" onclick="$('pre-view').style.display='none'">关闭预览</button></div><iframe id="ifr"></iframe></div><script>let db=JSON.parse(localStorage.getItem('h_v6')||'{}'),hisDb=JSON.parse(localStorage.getItem('h_his_v6')||'{}'),fs=16,his=[],hIdx=-1,curOldName='',iTimer=null;const $=id=>document.getElementById(id),lv=$('list-view'),ev=$('edit-view');function render(){lv.innerHTML=Object.keys(db).length?'':'<div class="empty">未找到文件</div>';Object.keys(db).sort().forEach(n=>{let d=document.createElement('div');d.className='item';d.innerHTML=`<div class="item-name" onclick="edit('${n}')">${n}</div><button class="del-btn" onclick="del('${n}')">删除</button>`;lv.appendChild(d)})}function edit(n){ev.style.display='flex';curOldName=n;let name=n||'未命名.HTML';$('fn').value=name;let c=n?db[n]:'<!DOCTYPE html>\n<html>\n<body>\n<h1>你好世界</h1>\n</body>\n</html>';$('ed').value=c;let key=name.toUpperCase();his=hisDb[key]||[c];hIdx=his.length-1;updateDraft();$('ed').focus()}function record(){clearTimeout(iTimer);iTimer=setTimeout(()=>{const n=$('fn').value.toUpperCase(),c=$('ed').value;if(!n||c===his[hIdx])return;if(hIdx<his.length-1)his=his.slice(0,hIdx+1);his.push(c);if(his.length>500)his.shift();hIdx=his.length-1;syncToDisk()},300)}function updateDraft(){localStorage.setItem('last_draft',JSON.stringify({n:$('fn').value,c:$('ed').value,old:curOldName}))}function syncToDisk(){const n=$('fn').value.toUpperCase();if(n){hisDb[n]=his;localStorage.setItem('h_his_v6',JSON.stringify(hisDb));updateDraft()}}function undo(){if(hIdx>0){hIdx--;$('ed').value=his[hIdx];syncToDisk()}}function redo(){if(hIdx<his.length-1){hIdx++;$('ed').value=his[hIdx];syncToDisk()}}function save(){let n=$('fn').value.toUpperCase(),c=$('ed').value;if(!n)return alert('请输入文件名');if(curOldName&&curOldName.toUpperCase()!==n){let ok=curOldName.toUpperCase();if(hisDb[ok]){hisDb[n]=hisDb[ok];delete hisDb[ok]}delete db[curOldName];curOldName=$('fn').value}db[n]=c;localStorage.setItem('h_v6',JSON.stringify(db));record();syncToDisk();render();alert('【存碑成功】已保存，你可以继续编辑或返回');return true}function back(){let n=$('fn').value.toUpperCase();if(n){db[n]=$('ed').value;localStorage.setItem('h_v6',JSON.stringify(db))}ev.style.display='none';localStorage.removeItem('last_draft');render()}function exp(){if(save()){const n=$('fn').value.toUpperCase(),c=$('ed').value,b=new Blob([c],{type:'text/html'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n.endsWith('.HTML')?n:n+'.HTML';a.click();URL.revokeObjectURL(u)}}function bakOut(){const b=new Blob([JSON.stringify(db)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='世纪简码备份_'+new Date().getTime()+'.json';a.click()}function bakLoad(i){const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const data=JSON.parse(e.target.result);if(confirm('导入将合并现有文件，确认吗？')){db=Object.assign(db,data);localStorage.setItem('h_v6',JSON.stringify(db));render();alert('导入成功')}}catch(err){alert('备份文件格式错误')}};r.readAsText(f);i.value=''}function run(){let n=$('fn').value.toUpperCase(),c=$('ed').value;if(!n)return alert('请输入文件名');save();$('ifr').srcdoc=c;$('pre-view').style.display='flex';$('pre-title').innerText='预览: '+n}function del(n){if(confirm('确认删除？')){let k=n.toUpperCase();delete db[n];delete hisDb[k];localStorage.setItem('h_v6',JSON.stringify(db));localStorage.setItem('h_his_v6',JSON.stringify(hisDb));render()}}function setFs(v){fs+=v;if(fs<10)fs=10;$('ed').style.fontSize=fs+'px';$('fv').innerText=fs+'px'}window.onload=()=>{render();let d=JSON.parse(localStorage.getItem('last_draft'));if(d&&confirm('检测到异常退出，是否恢复所有操作链？')){edit(d.old);$('fn').value=d.n;$('ed').value=d.c;if(his[hIdx]!==d.c){his.push(d.c);hIdx=his.length-1;syncToDisk()}}};render();</script></body></html>
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>极简编辑器</title><style>*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}body{margin:0;height:100vh;display:flex;flex-direction:column;background:#fff;color:#000;overflow:hidden}header{padding:15px 20px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid #000}#hd-top{display:flex;justify-content:space-between;align-items:center}h1{margin:0;font-size:18px;font-weight:900}#hd-btns{display:flex;gap:8px}.btn-s{padding:5px 10px;font-size:11px}#list-view{flex:1;overflow-y:auto;padding:0 20px}.item{display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid #eee}.item-name{font-size:16px;flex:1}.del-btn{font-size:12px;color:#999;border:none;background:none}#edit-view,#pre-view{position:fixed;top:0;left:0;right:0;bottom:0;display:none;flex-direction:column;background:#fff;z-index:99}.bar{padding:10px 16px;display:flex;align-items:center;border-bottom:1px solid #000;gap:6px}#fn{width:120px;border:none;outline:0;font-size:15px;font-weight:bold}textarea{flex:1;width:100%;padding:20px;border:none;outline:0;font-size:16px;line-height:1.6;white-space:pre-wrap;word-break:break-all;overflow-y:auto}iframe{flex:1;width:100%;border:none}.btn{border:1px solid #000;background:none;padding:6px 16px;font-size:12px;text-transform:uppercase;font-weight:bold;cursor:pointer}.btn-black{background:#000;color:#fff}.fs-bar{padding:10px 20px;display:flex;align-items:center;font-size:11px;color:#999;border-bottom:1px solid #eee;justify-content:space-between}.empty{text-align:center;margin-top:100px;color:#ccc;letter-spacing:2px}</style></head><body><header><div id="hd-top"><h1>世纪简码</h1><button class="btn btn-black" onclick="edit('')">新建文件</button></div><div id="hd-btns"><button class="btn btn-s" onclick="bakOut()">备份全部</button><button class="btn btn-s" onclick="$('bakIn').click()">导入备份</button><input type="file" id="bakIn" style="display:none" onchange="bakLoad(this)" accept=".json"></div></header><div id="list-view"></div><div id="edit-view"><div class="bar"><input id="fn" spellcheck="false" placeholder="文件名"><button class="btn" onclick="save()">保存</button><button class="btn" onclick="exp()">导出</button><button class="btn" onclick="back()">返回</button><button class="btn btn-black" onclick="run()">运行</button></div><div class="fs-bar"><div><span>字体 </span><span onclick="setFs(-2)" style="cursor:pointer;color:#000;font-weight:bold;padding:0 5px">—</span><span id="fv" style="color:#000">16px</span><span onclick="setFs(2)" style="cursor:pointer;color:#000;font-weight:bold;padding:0 5px">＋</span></div><div><span onclick="undo()" style="cursor:pointer;color:#000;font-weight:bold;font-size:16px;padding:0 10px">←</span><span onclick="redo()" style="cursor:pointer;color:#000;font-weight:bold;font-size:16px;padding:0 10px">→</span></div></div><textarea id="ed" spellcheck="false" oninput="realTimeSync()"></textarea></div><div id="pre-view"><div class="bar"><span id="pre-title" style="flex:1;font-weight:bold">预览</span><button class="btn" onclick="$('pre-view').style.display='none'">关闭预览</button></div><iframe id="ifr"></iframe></div><script>
+let db=JSON.parse(localStorage.getItem('h_v6')||'{}'),hisDb=JSON.parse(localStorage.getItem('h_his_v6')||'{}'),fs=16,his=[],hIdx=-1,curOldName='';
+const $=id=>document.getElementById(id),lv=$('list-view'),ev=$('edit-view');
+
+function render(){
+    lv.innerHTML=Object.keys(db).length?'':'<div class="empty">未找到文件</div>';
+    Object.keys(db).sort().forEach(n=>{
+        let d=document.createElement('div'); d.className='item';
+        d.innerHTML=`<div class="item-name" onclick="edit('${n}')">${n}</div><button class="del-btn" onclick="del('${n}')">删除</button>`;
+        lv.appendChild(d)
+    })
+}
+
+function edit(n){
+    ev.style.display='flex';
+    curOldName=n;
+    let name=n||'未命名.HTML';
+    $('fn').value=name;
+    let c=n?db[n]:'<!DOCTYPE html>\n<html>\n<body>\n<h1>你好世界</h1>\n</body>\n</html>';
+    $('ed').value=c;
+    
+    // 初始化历史
+    let key=name.toUpperCase();
+    his=hisDb[key]||[c];
+    hIdx=his.length-1;
+    
+    realTimeSync(); // 初始化即同步一次
+    $('ed').focus();
+}
+
+// 【关键修改：瞬时草稿同步】
+function realTimeSync(){
+    const c=$('ed').value;
+    const n=$('fn').value;
+    // 1. 无论是否达到历史步骤，先存入草稿箱（最重要，救命用）
+    localStorage.setItem('last_draft', JSON.stringify({ n:n, c:c, old:curOldName }));
+    
+    // 2. 逻辑判断：如果内容真的变了，再处理那 50 步撤销
+    if(c!==his[hIdx]){
+        if(hIdx<his.length-1) his=his.slice(0,hIdx+1);
+        his.push(c);
+        if(his.length>50) his.shift();
+        hIdx=his.length-1;
+        // 同步历史链
+        if(n){
+            hisDb[n.toUpperCase()]=his;
+            localStorage.setItem('h_his_v6', JSON.stringify(hisDb));
+        }
+    }
+}
+
+function undo(){ if(hIdx>0){ hIdx--; $('ed').value=his[hIdx]; realTimeSync(); } }
+function redo(){ if(hIdx<his.length-1){ hIdx++; $('ed').value=his[hIdx]; realTimeSync(); } }
+
+function save(){
+    let n=$('fn').value.toUpperCase(), c=$('ed').value;
+    if(!n) return alert('文件名？');
+    if(curOldName && curOldName.toUpperCase()!==n){
+        let ok=curOldName.toUpperCase();
+        if(hisDb[ok]){ hisDb[n]=hisDb[ok]; delete hisDb[ok]; }
+        delete db[curOldName];
+        curOldName=$('fn').value;
+    }
+    db[n]=c;
+    localStorage.setItem('h_v6', JSON.stringify(db));
+    realTimeSync();
+    render();
+    return true;
+}
+
+function back(){
+    ev.style.display='none';
+    localStorage.removeItem('last_draft'); // 只有这里是“任务完成”的终点
+    render();
+}
+
+function del(n){ if(confirm('删除？')){ let k=n.toUpperCase(); delete db[n]; delete hisDb[k]; localStorage.setItem('h_v6',JSON.stringify(db)); localStorage.setItem('h_his_v6',JSON.stringify(hisDb)); render(); }}
+function setFs(v){ fs+=v; if(fs<10)fs=10; $('ed').style.fontSize=fs+'px'; $('fv').innerText=fs+'px'; }
+function run(){ let n=$('fn').value; if(!n)return alert('文件名？'); save(); $('ifr').srcdoc=$('ed').value; $('pre-view').style.display='flex'; $('pre-title').innerText='预览: '+n; }
+function exp(){ if(save()){ const n=$('fn').value,c=$('ed').value,b=new Blob([c],{type:'text/html'}),u=URL.createObjectURL(b),a=document.createElement('a'); a.href=u; a.download=n.endsWith('.HTML')?n:n+'.HTML'; a.click(); URL.revokeObjectURL(u); } }
+function bakOut(){ const b=new Blob([JSON.stringify(db)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a'); a.href=u; a.download='BAK_'+new Date().getTime()+'.json'; a.click(); }
+function bakLoad(i){ const f=i.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{db=Object.assign(db,JSON.parse(e.target.result)); localStorage.setItem('h_v6',JSON.stringify(db)); render(); alert('OK')}catch(err){alert('ERR')}}; r.readAsText(f); i.value=''; }
+
+window.onload=()=>{
+    render();
+    const raw=localStorage.getItem('last_draft');
+    if(raw){
+        const d=JSON.parse(raw);
+        if(confirm('检测到异常退出，是否恢复到最后一秒的进度？')){
+            // 先进场加载历史
+            edit(d.old);
+            // 强行覆盖为最后一秒的文字（不受历史步骤限制）
+            $('fn').value=d.n;
+            $('ed').value=d.c;
+            // 重新写一次，确保一致性
+            realTimeSync();
+        } else {
+            localStorage.removeItem('last_draft');
+        }
+    }
+};
+</script></body></html>
